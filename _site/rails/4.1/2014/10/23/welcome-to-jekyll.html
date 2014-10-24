@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta charset="utf-8">
+        <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+        <title>Rails 4.1, Heroku and Figaro</title>
+        <meta name="viewport" content="width=device-width">
+
+        <!-- syntax highlighting CSS -->
+        <link rel="stylesheet" href="/css/syntax.css">
+
+        <!-- Custom CSS -->
+        <link rel="stylesheet" href="/css/main.css">
+
+    </head>
+    <body>
+
+        <div class="site">
+          <div class="header">
+            <h1 class="title"><a href="/">Grog</a></h1>
+            <a class="extra" href="/">home</a>
+          </div>
+
+          <h2>Rails 4.1, Heroku and Figaro</h2>
+<p class="meta">23 Oct 2014</p>
+
+<div class="post">
+<p>Yesterday, I spent some time scaffolding a new rails 4.1 application and was excited to see the inclusion of a Figaro-like setup for ENV variables.  I added several API keys to my secrets.yml file and then ignored the file in my .gitignore.  However, when I went to deploy my application to Heroku, it choked.  </p>
+
+<p>First, I received the following error from devise, which I am using for authentication:</p>
+
+<div class="highlight"><pre><code class="language-console" data-lang="console"><span class="go">Preparing app for Rails asset pipeline</span>
+<span class="go">   Running: rake assets:precompile</span>
+<span class="go">   rake aborted!</span>
+<span class="go">   Devise.secret_key was not set. Please add the following to your Devise initializer:</span>
+<span class="go">   config.secret_key = &#39;EXAMPLE_KEY_HERE&#39;</span>
+<span class="go">   Please ensure you restarted your application after setting the key.</span></code></pre></div>
+
+<p>Adding the secret key to my devise.rb setup promptly resolved the issue, but I knew this wasn&#39;t the ideal setup, and the next deployment choked on the missing secret key base</p>
+
+<div class="highlight"><pre><code class="language-console" data-lang="console"><span class="go">Missing secret_key_base for &#39;production&#39; environment, set value in config/secrets.yml</span></code></pre></div>
+
+<p>So, I decided to go back to the drawing board, and after unsuccessfully trying several configuration options including the heroku secrets gem, I returned to Figaro.  </p>
+
+<p>First, I removed the key I had added to devise.rb.  Then, I installed Figaro and transferred my secret api keys and secret key bases for test and development from secrets.yml to application.yml.  If you use the CLI tool to install Figaro, it should add application.yml to your .gitignore, but it&#39;s a good idea to check.</p>
+
+<p>Second, I removed secrets.yml from .gitignore, so that it would be checked into the repo.</p>
+
+<p>Here is my secrets.yml:</p>
+
+<div class="highlight"><pre><code class="language-yaml" data-lang="yaml"><span class="l-Scalar-Plain">development</span><span class="p-Indicator">:</span>
+  <span class="l-Scalar-Plain">secret_key_base</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">&lt;%= ENV[&quot;SECRET_KEY_BASE&quot;] %&gt;</span>
+
+<span class="l-Scalar-Plain">test</span><span class="p-Indicator">:</span>
+  <span class="l-Scalar-Plain">secret_key_base</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">&lt;%= ENV[&quot;SECRET_KEY_BASE_TEST&quot;] %&gt;</span>
+
+<span class="l-Scalar-Plain">production</span><span class="p-Indicator">:</span>
+  <span class="l-Scalar-Plain">secret_key_base</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">&lt;%= ENV[&quot;SECRET_KEY_BASE&quot;] %&gt;</span></code></pre></div>
+
+<p>Here is my application.yml (substitute your keys as necessary)</p>
+
+<div class="highlight"><pre><code class="language-yaml" data-lang="yaml"><span class="l-Scalar-Plain">SECRET_KEY_BASE</span><span class="p-Indicator">:</span> <span class="p-Indicator">{</span><span class="nv">SUBSTITUTE YOUR KEY HERE</span><span class="p-Indicator">}</span>
+<span class="l-Scalar-Plain">SECRET_KEY_BASE_TEST</span><span class="p-Indicator">:</span> <span class="p-Indicator">{</span><span class="nv">SUBSTITUTE YOUR KEY HERE</span><span class="p-Indicator">}</span></code></pre></div>
+
+<p>The secret key base for production will be generated automatically be heroku.</p>
+
+<p>Then, when you want to add sensitive keys to your application, you can do that by adding them to application.yml and calling them as:</p>
+
+<div class="highlight"><pre><code class="language-ruby" data-lang="ruby"><span class="no">ENV</span><span class="o">[</span><span class="s1">&#39;TOP_SECRET_KEY&#39;</span><span class="o">]</span></code></pre></div>
+
+<p>If you want to use the new Rails configuration for secrets, you can then add them to the secrets.yml file as such:</p>
+
+<div class="highlight"><pre><code class="language-yaml" data-lang="yaml"><span class="l-Scalar-Plain">development</span><span class="p-Indicator">:</span>
+  <span class="l-Scalar-Plain">secret_key_base</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">&lt;%= ENV[&quot;SECRET_KEY_BASE&quot;] %&gt;</span>
+  <span class="l-Scalar-Plain">top_secret_key</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">&lt;%= ENV[&quot;TOP_SECRET_KEY&quot;] %&gt;</span>
+
+<span class="l-Scalar-Plain">test</span><span class="p-Indicator">:</span>
+  <span class="l-Scalar-Plain">secret_key_base</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">&lt;%= ENV[&quot;SECRET_KEY_BASE_TEST&quot;] %&gt;</span>
+  <span class="l-Scalar-Plain">top_secret_key</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">&lt;%= ENV[&quot;TOP_SECRET_KEY&quot;] %&gt;</span>
+
+<span class="l-Scalar-Plain">production</span><span class="p-Indicator">:</span>
+  <span class="l-Scalar-Plain">secret_key_base</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">&lt;%= ENV[&quot;SECRET_KEY_BASE&quot;] %&gt;</span>
+  <span class="l-Scalar-Plain">top_secret_key</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">&lt;%= ENV[&quot;TOP_SECRET_KEY&quot;] %&gt;</span></code></pre></div>
+
+<p>Then, you can call </p>
+
+<div class="highlight"><pre><code class="language-ruby" data-lang="ruby"><span class="no">Rails</span><span class="o">.</span><span class="n">application</span><span class="o">.</span><span class="n">secrets</span><span class="o">.</span><span class="n">top_secret_key</span></code></pre></div>
+
+<p>from anywhere within the app.  I prefer to just skip the last step and use </p>
+
+<div class="highlight"><pre><code class="language-ruby" data-lang="ruby"><span class="no">ENV</span><span class="o">[</span><span class="s1">&#39;TOP_SECRET_KEY&#39;</span><span class="o">]</span></code></pre></div>
+
+</div>
+
+
+          <div class="footer">
+            <div class="contact">
+              <p>
+                Brooks Mason<br />
+                Software Developer @ <a href="http://monsoonco.com">Monsoon</a><br /><br />
+              </p>
+            </div>
+            <div class="contact">
+              <p>
+                <a href="https://github.com/brooks">github.com/brooks</a><br />
+                <a href="https://twitter.com/broppler">twitter.com/broppler</a><br />
+              </p>
+            </div>
+          </div>
+        </div>
+
+    </body>
+</html>
